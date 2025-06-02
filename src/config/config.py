@@ -20,7 +20,7 @@ BASE_DOWNLOAD_URLS = [
 ]
 
 GITHUB_API_URL = (
-    f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
+    f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases"
 )
 
 SWASS_PATH_PATTERN = r"C:\Program Files (x86)\Seewo\SeewoService\SeewoService_*\SeewoServiceAssistant\resources"

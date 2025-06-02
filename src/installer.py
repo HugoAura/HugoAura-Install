@@ -8,11 +8,60 @@ from utils import dirSearch, fileDownloader, killer
 from config import config
 
 
+def fetch_github_releases():
+    import requests
+    url = config.GITHUB_API_URL
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        log.error(f"获取 GitHub Releases 失败: {e}")
+        return None
+
+
+def select_release_tag():
+    releases = fetch_github_releases()
+    if not releases:
+        log.error("无法获取版本信息，您可以手动输入版本 Tag：")
+        return input("请输入版本 Tag：")
+    # 分类发行版和预发行版
+    stable = [r for r in releases if not r.get("prerelease", False)]
+    pre = [r for r in releases if r.get("prerelease", False)]
+    options = []
+    print("请选择要安装的版本：")
+    if stable:
+        print("--- 发行版 ---")
+        for rel in stable:
+            tag = rel.get("tag_name", "")
+            name = rel.get("name", tag)
+            print(f"[{len(options)+1}] {tag} (发行版) {name}")
+            options.append(tag)
+    if pre:
+        print("--- 预发行版 ---")
+        for rel in pre:
+            tag = rel.get("tag_name", "")
+            name = rel.get("name", tag)
+            print(f"[{len(options)+1}] {tag} (预发行版) {name}")
+            options.append(tag)
+    print(f"[{len(options)+1}] 手动输入版本 Tag")
+    while True:
+        choice = input(f"请输入序号 [1-{len(options)+1}]：")
+        if choice.isdigit():
+            idx = int(choice)
+            if 1 <= idx <= len(options):
+                return options[idx-1]
+            elif idx == len(options)+1:
+                return input("请输入版本 Tag：")
+        print("输入无效，请重新输入。")
+
+
 def run_installation():
     install_success = False
     install_dir_path = None
     downloaded_asar_path = None
     downloaded_zip_path = None
+    selected_tag = None
 
     try:
         log.info("[0 / 9] 准备安装")
@@ -27,13 +76,9 @@ def run_installation():
 
         install_dir_path = Path(install_dir_path_str)
 
-        log.info("[2 / 9] 获取 HugoAura Releases 信息")
-        """
-        latest_tag = fileDownloader.get_latest_release_tag()
-        if not latest_tag:
-            log.critical("获取最新版本 Tag 失败, 即将结束安装")
-            return False
-        """
+        log.info("[2 / 9] 选择 HugoAura 版本")
+        selected_tag = select_release_tag()
+        log.info(f"已选择版本 Tag: {selected_tag}")
 
         log.info("[3 / 9] 下载资源文件")
         downloaded_asar_path, downloaded_zip_path = (
