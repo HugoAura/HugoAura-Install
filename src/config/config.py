@@ -18,10 +18,10 @@ EXTRACTED_FOLDER_NAME = "aura"
 
 # 下载 URL 列表
 BASE_DOWNLOAD_URLS = [
-    f"https://github.tbedu.top/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download", # TBEdu 镜像
     f"https://bgithub.xyz/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download",  # bgithub 镜像
-    f"https://ghfast.top/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download",  # GHFast 镜像
     f"https://ghproxy.net/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download", # GHProxy 镜像
+    f"https://github.tbedu.top/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download", # TBEdu 镜像
+    f"https://ghfast.top/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download",  # GHFast 镜像
     f"https://github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download",  # GitHub 源
 ]
 
@@ -29,7 +29,7 @@ BASE_DOWNLOAD_URLS = [
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases"
 
 # 目标路径模式
-SWASS_PATH_PATTERN = r"C:\Program Files (x86)\Seewo\SeewoService\SeewoService_*\SeewoServiceAssistant\resources"
+SWASS_PATH_PATTERN = r"C:\\Program Files (x86)\\Seewo\\SeewoService\\SeewoService_*\\SeewoServiceAssistant\\resources"
 
 # 临时目录信息
 TEMP_DIR_NAME = "Aura-Install-Temp"
@@ -37,7 +37,7 @@ TEMP_INSTALL_DIR = os.path.join(tempfile.gettempdir(), TEMP_DIR_NAME)
 
 # HugoAura 数据路径
 HUGOAURA_USER_DATA_DIR = os.path.join(os.path.expanduser("~"), "Documents", "HugoAura")
-HUGOAURA_REGISTRY_KEY = r"SOFTWARE\HugoAura"
+HUGOAURA_REGISTRY_KEY = r"SOFTWARE\\HugoAura"
 
 # 备份目录信息
 BACKUP_DIR_NAME = "HugoAura-Backup"
@@ -54,7 +54,7 @@ PROCESS_KILL_INTERVAL_SECONDS = 0.5
 EXIT_CODES = {
     0: "安装成功",
     1: "安装失败（一般错误）",
-    2: "权限不足，需要管理员权限",
+    2: "权限不足, 需要管理员权限",
     3: "未找到希沃管家安装目录",
     4: "资源文件下载失败",
     5: "资源文件解压失败",

@@ -1,8 +1,10 @@
+from datetime import datetime
 import os
 import shutil
 import subprocess
 import time
 import sys
+import winreg
 import requests
 from pathlib import Path
 from logger.initLogger import log
@@ -26,7 +28,7 @@ def select_release_source(args=None):
     选择安装版本来源
 
     参数:
-        args: 命令行参数对象，如果提供则尝试使用非交互式方式选择
+        args: 命令行参数对象, 如果提供则尝试使用非交互式方式选择
 
     返回:
         str: 版本标签或本地文件路径, 如果在非交互模式下失败则返回None
@@ -51,7 +53,8 @@ def select_release_source(args=None):
         if args and args.yes:
             log.critical("非交互模式下无法获取版本信息, 安装终止")
             sys.exit(4)  # 资源文件下载失败
-        return input("请输入版本 Tag 或本地文件路径: ")
+        log.info("请输入版本 Tag 或本地文件路径: ")
+        return input()
 
     # 分类发行版和预发行版
     stable = [r for r in releases if not r.get("prerelease", False)]
@@ -85,32 +88,34 @@ def select_release_source(args=None):
 
     # 交互式选择
     options = []
-    print("请选择要安装的版本: ")
+    log.info("请选择要安装的版本: ")
     if stable:
-        print("--- 发行版 ---")
+        log.info("--- 发行版 ---")
         for rel in stable:
             tag = rel.get("tag_name", "")
             name = rel.get("name", tag)
-            print(f"[{len(options)+1}] {tag} (发行版) {name}")
+            log.info(f"[{len(options)+1}] {tag} (发行版) {name}")
             options.append(tag)
     if pre:
-        print("--- 预发行版 ---")
+        log.info("--- 预发行版 ---")
         for rel in pre:
             tag = rel.get("tag_name", "")
             name = rel.get("name", tag)
-            print(f"[{len(options)+1}] {tag} (预发行版) {name}")
+            log.info(f"[{len(options)+1}] {tag} (预发行版) {name}")
             options.append(tag)
-    print(f"[{len(options)+1}] 手动输入版本 Tag")
+    log.info(f"[{len(options)+1}] 手动输入版本 Tag")
 
     while True:
-        choice = input(f"请输入序号 [1-{len(options)+1}]: ")
+        log.info(f"请输入序号 [1-{len(options)+1}]: ")
+        choice = input()
         if choice.isdigit():
             idx = int(choice)
             if 1 <= idx <= len(options):
                 return options[idx - 1]
             elif idx == len(options) + 1:
-                return input("请输入版本 Tag: ")
-        print("输入无效, 请重新输入。")
+                log.info("请输入版本 Tag: ")
+                return input()
+        log.info("输入无效, 请重新输入。")
 
 
 def run_installation(args=None):
@@ -118,7 +123,7 @@ def run_installation(args=None):
     运行安装流程
 
     参数:
-        args: 命令行参数对象，如果提供则尝试使用非交互式方式安装
+        args: 命令行参数对象, 如果提供则尝试使用非交互式方式安装
 
     返回:
         bool: 安装是否成功
@@ -172,7 +177,7 @@ def run_installation(args=None):
                 )
                 if not downloaded_zip_path.exists():
                     log.critical(
-                        "未找到对应的文件，请确保本地路径同时包含 app-patched.asar 和 aura.zip 文件"
+                        "未找到对应的文件, 请确保本地路径同时包含 app-patched.asar 和 aura.zip 文件"
                     )
                     return False
             else:
@@ -296,7 +301,7 @@ def run_installation(args=None):
         log.info("[9 / 10] 写入版本信息和安装时间到注册表")
         # 写入版本信息和安装时间到注册表
         try:
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, config.HUGOAURA_REGISTRY_KEY) as key:
+            with winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, config.HUGOAURA_REGISTRY_KEY) as key:
                 winreg.SetValueEx(key, "Version", 0, winreg.REG_SZ, download_source if isinstance(download_source, str) else "local")
                 winreg.SetValueEx(key, "InstallTime", 0, winreg.REG_SZ, datetime.now().isoformat())
             log.info("版本信息和安装时间已写入注册表")

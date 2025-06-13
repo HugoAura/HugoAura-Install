@@ -7,7 +7,7 @@ import hashlib
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Set
+from typing import List, Dict, Optional, Tuple, Any
 from logger.initLogger import log
 from config.config import (
     BACKUP_BASE_DIR,
@@ -56,7 +56,7 @@ class BackupManager:
     def _get_aura_version(self) -> Optional[str]:
         """从注册表获取 HugoAura 版本号"""
         try:
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, self.registry_key) as key:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, self.registry_key) as key:
                 version, _ = winreg.QueryValueEx(key, "Version")
                 return version
         except (FileNotFoundError, OSError):
@@ -69,7 +69,7 @@ class BackupManager:
     def _set_aura_version(self, version: str) -> bool:
         """设置 HugoAura 版本号到注册表"""
         try:
-            with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.registry_key) as key:
+            with winreg.CreateKey(winreg.HKEY_LOCAL_MACHINE, self.registry_key) as key:
                 winreg.SetValueEx(key, "Version", 0, winreg.REG_SZ, version)
             return True
         except Exception as e:
@@ -88,11 +88,11 @@ class BackupManager:
             file_path: 文件路径
             
         Returns:
-            Optional[str]: MD5哈希值，如果计算失败则返回None
+            Optional[str]: MD5哈希值, 如果计算失败则返回None
         """
         try:
             if not file_path.exists() or not file_path.is_file():
-                log.error(f"无法计算MD5：文件不存在或不是文件: {file_path}")
+                log.error(f"无法计算MD5: 文件不存在或不是文件: {file_path}")
                 return None
                 
             md5_hash = hashlib.md5()
@@ -102,18 +102,18 @@ class BackupManager:
                     md5_hash.update(chunk)
             return md5_hash.hexdigest()
         except Exception as e:
-            log.error(f"计算MD5哈希值失败: {e}")
+            log.error(f"计算 MD5 哈希值失败: {e}")
             return None
             
     def _compress_backup(self, backup_dir: Path, files_to_compress: List[Path]) -> Optional[Path]:
-        """将备份文件压缩到ZIP文件
+        """将备份文件压缩到 ZIP 文件
         
         Args:
             backup_dir: 备份目录
             files_to_compress: 要压缩的文件列表
             
         Returns:
-            Optional[Path]: 压缩文件路径，如果压缩失败则返回None
+            Optional[Path]: 压缩文件路径, 如果压缩失败则返回 None
         """
         try:
             if not files_to_compress:
@@ -176,7 +176,7 @@ class BackupManager:
             if len(backups) <= MAX_BACKUPS:
                 return
                 
-            # 按时间戳排序，删除最旧的备份
+            # 按时间戳排序, 删除最旧的备份
             backups_to_delete = backups[MAX_BACKUPS:]
             for backup in backups_to_delete:
                 backup_name = backup.get('backup_name')
@@ -184,7 +184,7 @@ class BackupManager:
                     log.info(f"清理旧备份: {backup_name}")
                     self.delete_backup(backup_name)
                     
-            log.info(f"备份清理完成，当前备份数量: {min(len(backups), MAX_BACKUPS)}")
+            log.info(f"备份清理完成, 当前备份数量: {min(len(backups), MAX_BACKUPS)}")
         except Exception as e:
             log.error(f"清理旧备份失败: {e}")
             
@@ -220,7 +220,7 @@ class BackupManager:
                         
                     # 检查哈希值文件是否存在
                     if "file_hashes.json" not in file_list:
-                        log.warning("备份中没有找到哈希值文件，跳过哈希验证")
+                        log.warning("备份中没有找到哈希值文件, 跳过哈希验证")
                     else:
                         # 提取哈希值文件
                         with zipf.open("file_hashes.json") as f:
@@ -311,7 +311,7 @@ class BackupManager:
             # 获取希沃管家资源目录
             resources_dir = find_seewo_resources_dir()
             if not resources_dir:
-                log.error("未找到希沃管家安装目录，无法创建备份")
+                log.error("未找到希沃管家安装目录, 无法创建备份")
                 return False, None
             
             resources_path = Path(resources_dir)
@@ -329,7 +329,7 @@ class BackupManager:
             backup_asar = backup_dir / TARGET_ASAR_NAME
             try:
                 if not asar_file.exists():
-                    log.warning(f"ASAR 文件不存在，跳过备份: {asar_file}")
+                    log.warning(f"ASAR 文件不存在, 跳过备份: {asar_file}")
                     skipped_items.append({
                         "type": "file",
                         "path": str(asar_file),
@@ -345,7 +345,7 @@ class BackupManager:
                     if asar_md5:
                         log.debug(f"ASAR 文件 MD5: {asar_md5}")
             except Exception as e:
-                log.warning(f"备份 ASAR 文件失败，跳过: {e}")
+                log.warning(f"备份 ASAR 文件失败, 跳过: {e}")
                 skipped_items.append({
                     "type": "file",
                     "path": str(asar_file),
@@ -356,7 +356,7 @@ class BackupManager:
             backup_aura_folder = backup_dir / EXTRACTED_FOLDER_NAME
             try:
                 if not aura_folder.exists():
-                    log.warning(f"aura 文件夹不存在，跳过备份: {aura_folder}")
+                    log.warning(f"aura 文件夹不存在, 跳过备份: {aura_folder}")
                     skipped_items.append({
                         "type": "folder",
                         "path": str(aura_folder),
@@ -367,7 +367,7 @@ class BackupManager:
                     log.info(f"已备份 aura 文件夹: {backup_aura_folder}")
                     files_to_compress.append(backup_aura_folder)
             except Exception as e:
-                log.warning(f"备份 aura 文件夹失败，跳过: {e}")
+                log.warning(f"备份 aura 文件夹失败, 跳过: {e}")
                 skipped_items.append({
                     "type": "folder",
                     "path": str(aura_folder),
@@ -381,7 +381,7 @@ class BackupManager:
             
             # 检查是否有任何文件被成功备份
             if len(skipped_items) > 0 and not backup_asar.exists() and not backup_aura_folder.exists():
-                log.error("所有备份项目都失败，无法创建有效备份")
+                log.error("所有备份项目都失败, 无法创建有效备份")
                 # 清理空备份目录
                 shutil.rmtree(backup_dir)
                 return False, None
@@ -392,11 +392,11 @@ class BackupManager:
                 log.info("开始压缩备份文件...")
                 archive_path = self._compress_backup(backup_dir, files_to_compress)
                 if not archive_path:
-                    log.warning("备份文件压缩失败，将保留未压缩的文件")
+                    log.warning("备份文件压缩失败, 将保留未压缩的文件")
                 else:
                     # 验证备份完整性
                     if not self._verify_backup_integrity(backup_dir):
-                        log.warning("备份完整性验证失败，但备份文件已创建")
+                        log.warning("备份完整性验证失败, 但备份文件已创建")
                     
                     # 压缩成功后删除原始文件
                     for file_path in files_to_compress:
@@ -407,14 +407,14 @@ class BackupManager:
             
             # 保存备份信息
             if not self._save_backup_info(backup_dir, seewo_version, aura_version, skipped_items, archive_path):
-                log.warning("备份信息保存失败，但备份文件已创建")
+                log.warning("备份信息保存失败, 但备份文件已创建")
             
             # 清理旧备份
             self._cleanup_old_backups()
             
             log.info(f"✅ 备份创建成功: {backup_name}")
             if skipped_items:
-                log.warning(f"备份过程中有 {len(skipped_items)} 个项目被跳过，详情请查看备份信息文件")
+                log.warning(f"备份过程中有 {len(skipped_items)} 个项目被跳过, 详情请查看备份信息文件")
                 
             return True, backup_name
             
@@ -429,7 +429,7 @@ class BackupManager:
         """列出所有备份
         
         Returns:
-            List[Dict[str, Any]]: 备份信息列表，包含以下字段：
+            List[Dict[str, Any]]: 备份信息列表, 包含以下字段：
                 - name: 备份名称
                 - path: 备份路径
                 - time: 备份时间（格式化字符串）
@@ -454,7 +454,7 @@ class BackupManager:
                     
                 backup_info = self._load_backup_info(backup_dir)
                 if not backup_info:
-                    # 没有备份信息文件，尝试从目录名称中提取信息
+                    # 没有备份信息文件, 尝试从目录名称中提取信息
                     backup_name = backup_dir.name
                     timestamp_str = backup_name.split("_")[1] if "_" in backup_name else ""
                     
@@ -483,7 +483,7 @@ class BackupManager:
                     
                     # 检查备份完整性
                     if backup_info.get("compressed", False) and not backup_info.get("verified", False):
-                        # 如果备份已压缩但未验证，尝试验证
+                        # 如果备份已压缩但未验证, 尝试验证
                         backup_info["verified"] = self._verify_backup_integrity(backup_dir)
                         # 更新备份信息文件
                         self._save_backup_info(
@@ -529,7 +529,7 @@ class BackupManager:
             
             # 检查备份目录是否可访问
             try:
-                # 尝试列出目录内容，确保有访问权限
+                # 尝试列出目录内容, 确保有访问权限
                 list(backup_dir.iterdir())
             except PermissionError:
                 log.error(f"无权限访问备份目录: {backup_dir}")
@@ -547,7 +547,7 @@ class BackupManager:
                 return False
             except FileNotFoundError:
                 log.warning(f"备份目录已不存在: {backup_dir}")
-                return True  # 目录已不存在，视为删除成功
+                return True  # 目录已不存在, 视为删除成功
             except Exception as e:
                 log.error(f"删除备份目录时出错: {e}")
                 return False
@@ -579,7 +579,7 @@ class BackupManager:
             # 获取希沃管家资源目录
             resources_dir = find_seewo_resources_dir()
             if not resources_dir:
-                log.error("未找到希沃管家安装目录，无法还原备份")
+                log.error("未找到希沃管家安装目录, 无法还原备份")
                 return False
                 
             resources_path = Path(resources_dir)
@@ -589,7 +589,7 @@ class BackupManager:
             # 加载备份信息
             backup_info = self._load_backup_info(backup_dir)
             if not backup_info:
-                log.error(f"无法加载备份信息，还原失败")
+                log.error(f"无法加载备份信息, 还原失败")
                 return False
                 
             # 检查是否是压缩备份
@@ -602,7 +602,7 @@ class BackupManager:
                     
                 # 验证备份完整性
                 if not self._verify_backup_integrity(backup_dir):
-                    log.error("备份完整性验证失败，无法还原")
+                    log.error("备份完整性验证失败, 无法还原")
                     return False
                     
                 # 解压备份文件
@@ -630,7 +630,7 @@ class BackupManager:
                 shutil.copy2(backup_asar, asar_file)
                 log.info(f"已还原 ASAR 文件: {asar_file}")
             else:
-                log.warning(f"备份中不存在 ASAR 文件，跳过还原")
+                log.warning(f"备份中不存在 ASAR 文件, 跳过还原")
             
             # 还原 aura 文件夹
             if backup_aura_folder.exists():
@@ -648,7 +648,7 @@ class BackupManager:
                 shutil.copytree(backup_aura_folder, aura_folder)
                 log.info(f"已还原 aura 文件夹: {aura_folder}")
             else:
-                log.warning(f"备份中不存在 aura 文件夹，跳过还原")
+                log.warning(f"备份中不存在 aura 文件夹, 跳过还原")
             
             # 清理解压的临时文件
             if archive_path and archive_path.exists():
