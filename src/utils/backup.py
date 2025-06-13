@@ -293,6 +293,49 @@ class BackupManager:
         except Exception as e:
             log.error(f"加载备份信息失败: {e}")
             return None
+
+    def get_backup_info(self, backup_name: str) -> Optional[Dict]:
+        """根据备份名称获取备份信息
+        
+        Args:
+            backup_name: 备份目录名称
+            
+        Returns:
+            Optional[Dict]: 备份信息字典，包含以下字段：
+                - name: 备份名称
+                - path: 备份路径
+                - time: 备份时间
+                - timestamp: 备份时间戳
+                - seewo_version: 希沃管家版本
+                - aura_version: HugoAura版本
+                - compressed: 是否已压缩
+                - archive_name: 压缩包名称
+                - verified: 备份完整性验证状态
+                - md5_hash: 备份文件MD5哈希值
+                - skipped_items: 跳过项目列表
+        """
+        try:
+            backup_dir = self.backup_base_dir / backup_name
+            if not backup_dir.exists() or not backup_dir.is_dir():
+                log.error(f"备份目录不存在或无效: {backup_dir}")
+                return None
+                
+            backup_info = self._load_backup_info(backup_dir)
+            if not backup_info:
+                log.warning(f"无法加载备份信息文件: {backup_dir}")
+                return None
+                
+            # 补充备份路径和名称信息
+            backup_info["path"] = str(backup_dir)
+            backup_info["name"] = backup_dir.name
+            
+            # 添加压缩状态
+            backup_info["compressed"] = "archive_file" in backup_info and backup_info["archive_file"] is not None
+            
+            return backup_info
+        except Exception as e:
+            log.error(f"获取备份信息失败: {e}")
+            return None
     
     def create_backup(self, aura_version: Optional[str] = None) -> Tuple[bool, Optional[str]]:
         """创建备份
