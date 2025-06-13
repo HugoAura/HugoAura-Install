@@ -18,7 +18,6 @@ EXTRACTED_FOLDER_NAME = "aura"
 
 # 下载 URL 列表
 BASE_DOWNLOAD_URLS = [
-    f"https://github.tbedu.top/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download", # TBEdu 镜像
     f"https://bgithub.xyz/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download",  # bgithub 镜像
     f"https://ghfast.top/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download",  # GHFast 镜像
     f"https://ghproxy.net/github.com/{GITHUB_OWNER}/{GITHUB_DL_REPO}/releases/download", # GHProxy 镜像
