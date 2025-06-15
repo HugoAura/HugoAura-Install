@@ -115,7 +115,7 @@ def select_release_source(args=None):
     if ci:
         latest_ci = ci[0]
         print("--- 自动构建版 ---")
-        print(f"[{len(options)+1}] {latest_ci["tag_name"]} {latest_ci["name"]}")
+        print(f"[{len(options)+1}] {latest_ci['tag_name']} {latest_ci['name']}")
         options.append(latest_ci["tag_name"])
 
     print("--- 或选择手动输入 ---")
