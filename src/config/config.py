@@ -12,7 +12,8 @@ GITHUB_DL_REPO = "Seewo-HugoAura"
 
 # 文件名
 ASAR_FILENAME = "app-patched.asar"
-ZIP_FILENAME = "aura.zip"
+CORE_FILENAME = "core.zip"
+AURA_FILENAME = "aura.zip"
 TARGET_ASAR_NAME = "app.asar"
 EXTRACTED_FOLDER_NAME = "aura"
 

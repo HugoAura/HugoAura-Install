@@ -7,8 +7,8 @@ from pathlib import Path
 from loguru import logger as log
 from config.config import (
     BASE_DOWNLOAD_URLS,
-    ASAR_FILENAME,
-    ZIP_FILENAME,
+    AURA_FILENAME,
+    CORE_FILENAME,
     TEMP_INSTALL_DIR,
 )
 import typeDefs.lifecycle
@@ -78,7 +78,7 @@ def download_file(url: str, dest_folder: str, filename: str) -> Path | str | Non
 async def test_download_source_speed(
     base_url: str, test_filename: str = None
 ) -> Tuple[str, float, bool]:
-    test_url = f"{base_url}/{desiredTag}/{ASAR_FILENAME}" if test_filename else base_url
+    test_url = f"{base_url}/{desiredTag}/{AURA_FILENAME}" if test_filename else base_url
 
     try:
         start_time = time.time()
@@ -102,7 +102,7 @@ async def benchmark_download_sources(tag_name: str) -> List[str]:
     log.info("正在测试下载源速度...")
 
     tasks = [
-        test_download_source_speed(url, ASAR_FILENAME) for url in BASE_DOWNLOAD_URLS
+        test_download_source_speed(url, AURA_FILENAME) for url in BASE_DOWNLOAD_URLS
     ]
     results = await asyncio.gather(*tasks)
 
@@ -198,14 +198,14 @@ def download_release_files(tagName) -> tuple[Path | None, Path | None]:
         )
         return None, None
 
-    downloaded_asar_path = download_file_multi_sources(ASAR_FILENAME, str(temp_dir))
-    if not downloaded_asar_path:
-        log.critical("下载 app-patched.asar 时发生错误, 安装进程终止。")
+    downloaded_core_path = download_file_multi_sources(CORE_FILENAME, str(temp_dir))
+    if not downloaded_core_path:
+        log.critical("下载 core.zip 时发生错误, 安装进程终止。")
         return None, None
 
-    downloaded_zip_path = download_file_multi_sources(ZIP_FILENAME, str(temp_dir))
+    downloaded_zip_path = download_file_multi_sources(AURA_FILENAME, str(temp_dir))
     if not downloaded_zip_path:
         log.critical("下载 aura.zip 时发生错误, 安装进程终止。")
-        return downloaded_asar_path, None
+        return downloaded_core_path, None
 
-    return downloaded_asar_path, downloaded_zip_path
+    return downloaded_core_path, downloaded_zip_path

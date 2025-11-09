@@ -28,7 +28,7 @@ options:
   -h, --help            显示帮助信息并退出
   -v VERSION, --version VERSION
                         指定要安装的版本 Tag, 例如 v1.0.0
-  -p PATH, --path PATH  指定本地安装文件路径 (app-patched.asar 文件路径)
+  -p PATH, --path PATH  指定本地安装文件路径 (aura.zip 文件路径)
   -l, --latest          安装最新的稳定版本 (默认)
   --pre                 安装最新的预发行版本
   -d DIR, --dir DIR     指定希沃管家安装目录
@@ -49,7 +49,7 @@ HugoAura-Install.exe --cli --pre -y
 HugoAura-Install.exe --cli -v v1.0.0 -y
 
 # 从本地文件安装
-HugoAura-Install.exe --cli -p "C:\path\to\app-patched.asar" -y
+HugoAura-Install.exe --cli -p "C:\path\to\aura.zip" -y
 
 # 指定安装目录
 HugoAura-Install.exe --cli -l -d "C:\Program Files (x86)\Seewo\SeewoService\SeewoService_1.0.0\SeewoServiceAssistant\resources" -y
@@ -75,7 +75,7 @@ HugoAura-Install.exe --cli -l -d "C:\Program Files (x86)\Seewo\SeewoService\Seew
 ## 注意事项
 
 1. 安装前, HugoAura-Install 会自动尝试卸载希沃的文件系统过滤驱动 (`SeewoKeLiteLady`)
-2. 如果您使用本地文件安装, 请确保提供目录同时存在 app-patched.asar 和 aura.zip 文件。
+2. 如果您使用本地文件安装，请确保提供目录存在 aura.zip 文件。
 
 ## 面向开发者
 
