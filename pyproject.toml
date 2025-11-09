@@ -1,6 +1,6 @@
 [project]
 name = "aura_installer"
-version = "0.0.1-alpha"
+version = "0.0.3"
 description = ""
 authors = [
     {name = "Minoricew",email = "154642983+Minoricew@users.noreply.github.com"}
