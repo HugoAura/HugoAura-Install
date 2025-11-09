@@ -28,7 +28,7 @@ options:
   -h, --help            显示帮助信息并退出
   -v VERSION, --version VERSION
                         指定要安装的版本 Tag, 例如 v1.0.0
-  -p PATH, --path PATH  指定本地安装文件路径 (aura.zip 文件路径)
+  -p PATH, --path PATH  指定本地安装文件所在文件夹 (aura.zip & core.zip 所在文件夹路径)
   -l, --latest          安装最新的稳定版本 (默认)
   --pre                 安装最新的预发行版本
   -d DIR, --dir DIR     指定希沃管家安装目录

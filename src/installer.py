@@ -134,7 +134,7 @@ def select_release_source(args=None):
         print("输入无效, 请重新输入。")
 
 
-def run_installation(args=None, installerClassIns=None):
+def run_installation(args, installerClassIns=None):
     """
     运行安装流程
 
@@ -147,8 +147,8 @@ def run_installation(args=None, installerClassIns=None):
     """
     install_success = False
     install_dir_path = None
-    downloaded_zip_path = None
-    downloaded_core_path = None
+    downloaded_aura_zip_path = None
+    downloaded_core_zip_path = None
     download_source = None
     ssa_asar = config.TARGET_ASAR_NAME
     if_patch = True
@@ -186,6 +186,7 @@ def run_installation(args=None, installerClassIns=None):
             install_dir_path_str = args.dir
             if not os.path.isdir(install_dir_path_str):
                 log.critical(f"指定的安装目录不存在: {install_dir_path_str}")
+                error_detail = "无效的管家安装目录"
                 return False
             log.info(f"使用指定的安装目录: {install_dir_path_str}")
         else:
@@ -199,13 +200,16 @@ def run_installation(args=None, installerClassIns=None):
                 install_dir_path_str = input()
                 if not os.path.isdir(install_dir_path_str):
                     log.critical(f"指定的目录不存在: {install_dir_path_str}")
+                    error_detail = "无效的管家安装目录"
                     return False
 
         install_dir_path = Path(install_dir_path_str)
 
         update_progress(20, "[2 / 10] 选择 HugoAura 版本")
         download_source = select_release_source(args)
-        if os.path.exists(download_source):
+        is_download_src_from_local = False
+        if ("\\" in download_source) or ("/" in download_source):
+            is_download_src_from_local = True
             log.info(f"已选择本地文件: {download_source}")
         else:
             log.info(f"已选择版本 Tag: {download_source}")
@@ -214,30 +218,43 @@ def run_installation(args=None, installerClassIns=None):
         dlCallbackFuncName = (
             lifecycleTypes.GLOBAL_CALLBACKS.REPORT_DOWNLOAD_PROGRESS.value
         )
-        if not str.startswith(download_source, "v"):
-            if os.path.exists(download_source):
-                downloaded_zip_path = Path(str(download_source))
-                downloaded_core_path = Path(
-                    str(download_source).replace("aura.zip", "core.zip")
-                )
+        if is_download_src_from_local:
+            if os.path.exists(download_source) and os.path.isdir(download_source):
+                downloaded_aura_zip_path = Path(download_source) / "aura.zip"
+                downloaded_core_zip_path = Path(download_source) / "core.zip"
+                if (not downloaded_aura_zip_path.exists()) or (
+                    not downloaded_core_zip_path.exists()
+                ):
+                    log.critical(
+                        "未能找到资源文件, 请确保 aura.zip 与 core.zip 在指定路径下存在"
+                    )
+                    error_detail = "未能在提供的本地路径找到资源文件"
+                    return False
             else:
-                log.critical("请输入合法的路径，并确保本地路径存在 aura.zip 文件")
+                log.critical("路径不存在, 请输入合法的文件夹路径")
+                error_detail = "无效的路径, 请检查路径输入"
                 return False
         else:
+            update_progress(32, "[3 / 10] 正在下载资源文件")
             lifecycleMgr.callbacks[dlCallbackFuncName] = rep_dl_progress
-            downloaded_core_path, downloaded_zip_path = (
+            downloaded_core_zip_path, downloaded_aura_zip_path = (
                 fileDownloader.download_release_files(download_source)
             )
-        if not downloaded_core_path or not downloaded_zip_path:
+        if not downloaded_core_zip_path or not downloaded_aura_zip_path:
             log.critical("资源文件下载失败, 即将结束安装")
+            error_detail = "资源文件下载失败, 请检查网络连接及日志信息"
             return False
 
         lifecycleMgr.callbacks[dlCallbackFuncName] = None
 
         update_progress(40, "[4 / 10] 解压资源文件")
-        temp_extract_path = Path(config.TEMP_INSTALL_DIR + "\\aura")
-        temp_extract_path_core  = Path(config.TEMP_INSTALL_DIR + "\\core")
-        if not fileDownloader.unzip_file(downloaded_zip_path, temp_extract_path) or not fileDownloader.unzip_file(downloaded_core_path, temp_extract_path_core):
+        temp_extract_path = Path(config.TEMP_INSTALL_DIR) / "aura"
+        temp_extract_path_core = Path(config.TEMP_INSTALL_DIR) / "core"
+        if not fileDownloader.unzip_file(
+            downloaded_aura_zip_path, temp_extract_path
+        ) or not fileDownloader.unzip_file(
+            downloaded_core_zip_path, temp_extract_path_core
+        ):
             error_detail = "资源文件解压失败"
             log.critical(error_detail)
             raise Exception(error_detail)
@@ -249,7 +266,7 @@ def run_installation(args=None, installerClassIns=None):
             )
             potential_nested_path = (
                 temp_extract_path
-                / Path(downloaded_zip_path.stem)
+                / Path(downloaded_aura_zip_path.stem)
                 / config.EXTRACTED_FOLDER_NAME
             )
             if potential_nested_path.is_dir():
@@ -295,40 +312,48 @@ def run_installation(args=None, installerClassIns=None):
                 if not args.dry_run:
                     shutil.rmtree(target_aura_path)
                     time.sleep(0.1)
-                ssa_asar = "app.asar.bak"
+                ssa_asar = "app.asar.bak"  # 此情况默认为更新 HugoAura, 因此使用上次 patch 时留存的原版 ASAR 备份
                 if os.path.exists(install_dir_path / ssa_asar):
                     log.warning(
-                        "Patch ASAR 将使用备份的ASAR，请确保其完整并未更改..."
+                        "Patch ASAR 将使用备份的 ASAR, 请确保其完整 & 未经修改..."
                     )
                 else:
                     log.warning(
-                        "app.asar.bak未找到，将不进行Patch操作..."
+                        "app.asar.bak 未找到, 将跳过 Patch 操作, 仅更新 Aura 资源文件..."
                     )
                     log.warning(
-                        "若现有的app.asar为未patch过的，请将其复制到app.asar.bak。"
+                        "若现有的 app.asar 即为未 patch 过的, 请尝试其复制到 app.asar.bak, 或清空 resources/aura/ 目录"
                     )
                     if_patch = False
+                    # TODO: 允许用户强制使用当前的 app.asar 进行 Patch
+
             if not args.dry_run:
                 shutil.move(str(expected_aura_source_path), str(target_aura_path))
             log.success(f"成功移动文件夹 '{config.EXTRACTED_FOLDER_NAME}'")
         except Exception as e:
-            error_detail = f"移动文件夹 '{config.EXTRACTED_FOLDER_NAME}' 时发生错误: {e}"
+            error_detail = (
+                f"移动文件夹 '{config.EXTRACTED_FOLDER_NAME}' 时发生错误: {e}"
+            )
             log.critical(error_detail)
             raise Exception(error_detail)
-            
+
         if if_patch:
-            update_progress(65, "[6.5 / 10] Patch ASAR")
-            PatchResult = asarPatcher.patch_asar_file(
+            update_progress(
+                65, "[6 / 10] 修补 ASAR 文件"
+            )  # 还是用 6 吧, 6.5 有点抽象了
+            patchResult = asarPatcher.patch_asar_file(
                 input_asar_path=str(install_dir_path / ssa_asar),
                 temp_extract_dir=str(Path(config.TEMP_INSTALL_DIR) / "asar_temp"),
-                output_asar_path=str(Path(config.TEMP_INSTALL_DIR) / config.ASAR_FILENAME),
-                core_dir=str(temp_extract_path_core)
+                output_asar_path=str(
+                    Path(config.TEMP_INSTALL_DIR) / config.ASAR_FILENAME
+                ),
+                core_dir=str(temp_extract_path_core),
             )
-            if not PatchResult[0]:
-                error_detail = f"ASAR 文件修改失败: {PatchResult[1]}"
+            if not patchResult[0]:
+                error_detail = f"ASAR 文件修改失败: {patchResult[1]}"
                 log.critical(error_detail)
                 raise Exception(error_detail)
-            log.info(f"ASAR 文件修改成功, 输出路径: {PatchResult[1]}")
+            log.info(f"ASAR 文件修改成功, 输出路径: {patchResult[1]}")
 
         update_progress(70, "[7 / 10] 启动结束进程后台任务")
         if not args.dry_run:
@@ -338,20 +363,20 @@ def run_installation(args=None, installerClassIns=None):
         if if_patch:
             update_progress(80, "[8 / 10] 替换 ASAR 包")
             original_asar_path = install_dir_path / config.TARGET_ASAR_NAME
-            temp_asar_path = PatchResult[1]
+            temp_asar_path = patchResult[1]  # type: ignore # 因为本段代码只会在 if_patch 的情况下被调用, 所以没有可能未绑定的问题
 
             log.info(f"正在将 {original_asar_path} 替换为新的 {temp_asar_path}...")
 
-            # 创建原始ASAR文件的备份
+            # 创建原始 ASAR 文件的备份
             backup_asar_path = install_dir_path / "app.asar.bak"
             if original_asar_path.exists() and not backup_asar_path.exists():
                 try:
-                    log.info(f"创建原始ASAR备份: {backup_asar_path}")
+                    log.info(f"创建原始 ASAR 备份: {backup_asar_path}")
                     if not args.dry_run:
                         shutil.copy2(str(original_asar_path), str(backup_asar_path))
-                    log.success("原始ASAR备份创建成功")
+                    log.success("原始 ASAR 备份创建成功")
                 except Exception as e:
-                    log.warning(f"创建ASAR备份失败: {e}")
+                    log.warning(f"创建 ASAR 备份失败: {e}")
 
             def del_original_asar():
                 if original_asar_path.exists():
@@ -381,16 +406,18 @@ def run_installation(args=None, installerClassIns=None):
                     log.success(f"替换 {config.TARGET_ASAR_NAME} 成功。")
                     install_success = True
                 else:
-                    error_detail = f"移动到 {original_asar_path} 失败, ASAR文件替换未成功"
+                    error_detail = (
+                        f"移动到 {original_asar_path} 失败, ASAR 文件替换未成功"
+                    )
                     log.critical(error_detail)
                     raise Exception(error_detail)
             except Exception as e:
-                error_detail = f"替换ASAR文件时发生错误: {e}。请检查文件系统过滤驱动已被卸载, 并确认对希沃管家目录有写入权限。"
+                error_detail = f"替换 ASAR 文件时发生错误: {e}。请检查文件系统过滤驱动已被卸载, 并确认对希沃管家目录有写入权限。"
                 log.critical(error_detail)
                 raise Exception(error_detail)
         else:
+            update_progress(80, "[8 / 10] 已跳过 ASAR 包替换, 安装即将完成...")
             install_success = True
-
 
         update_progress(90, "[9 / 10] 写入版本信息和安装时间到注册表")
         # 写入版本信息和安装时间到注册表
@@ -416,7 +443,6 @@ def run_installation(args=None, installerClassIns=None):
             log.info("版本信息和安装时间已写入注册表")
         except Exception as e:
             log.warning(f"写入注册表失败: {e}")
-
     except Exception as e:
         error_detail = e
         if installerClassIns and not installerClassIns.is_installing:

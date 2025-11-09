@@ -465,9 +465,9 @@ class MainWindow:
 
         # 自定义文件路径
         self.custom_path_frame = ttk_bs.Frame(version_frame)
-        ttk_bs.Label(self.custom_path_frame, text="文件路径:").pack(side=LEFT)
+        ttk_bs.Label(self.custom_path_frame, text="文件夹路径:").pack(side=LEFT)
         self.custom_path_entry = ttk_bs.Entry(
-            self.custom_path_frame, textvariable=self.custom_path_var, width=30
+            self.custom_path_frame, textvariable=self.custom_path_var, width=25
         )
         self.custom_path_entry.pack(side=LEFT, padx=(10, 5))
 
@@ -672,10 +672,9 @@ class MainWindow:
         )
 
     def _browse_file(self):
-        """浏览文件"""
-        filename = filedialog.askopenfilename(
-            title="选择 HugoAura 文件",
-            filetypes=[("ASAR 文件", "*.asar"), ("所有文件", "*.*")],
+        """选择文件夹"""
+        filename = filedialog.askdirectory(
+            title="选择 HugoAura 资源文件所在文件夹",
         )
         if filename:
             self.custom_path_var.set(filename)
