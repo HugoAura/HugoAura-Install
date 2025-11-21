@@ -8,7 +8,7 @@ import winreg
 import requests
 from pathlib import Path
 from logger.initLogger import log
-from utils import dirSearch, fileDownloader, killer
+from utils import dirSearch, fileDownloader, killer, asarPatcher
 from config import config
 
 
@@ -144,9 +144,11 @@ def run_installation(args=None):
     """
     install_success = False
     install_dir_path = None
-    downloaded_asar_path = None
     downloaded_zip_path = None
+    downloaded_core_path = None
     download_source = None
+    ssa_asar = config.TARGET_ASAR_NAME
+    if_patch = True
 
     try:
         log.info("[0 / 10] 准备")
@@ -185,31 +187,28 @@ def run_installation(args=None):
         log.info("[3 / 10] 获取资源文件")
         if not str.startswith(download_source, "v"):
             if os.path.exists(download_source):
-                downloaded_asar_path = Path(download_source)
-                downloaded_zip_path = Path(
-                    str(download_source).replace("app-patched.asar", "aura.zip")
+                downloaded_zip_path = Path(str(download_source))
+                downloaded_core_path = Path(
+                    str(download_source).replace("aura.zip", "core.zip")
                 )
-                if not downloaded_zip_path.exists():
-                    log.critical(
-                        "未找到对应的文件，请确保本地路径同时包含 app-patched.asar 和 aura.zip 文件"
-                    )
-                    return False
             else:
-                log.critical("请输入合法的路径")
+                log.critical("请输入合法的路径，并确保本地路径存在 aura.zip 文件")
                 return False
         else:
-            downloaded_asar_path, downloaded_zip_path = (
+            downloaded_core_path, downloaded_zip_path = (
                 fileDownloader.download_release_files(download_source)
             )
-        if not downloaded_asar_path or not downloaded_zip_path:
+        if not downloaded_core_path or not downloaded_zip_path:
             log.critical("资源文件下载失败, 即将结束安装")
             return False
 
         log.info("[4 / 10] 解压资源文件")
         temp_extract_path = Path(config.TEMP_INSTALL_DIR + "\\aura")
-        if not fileDownloader.unzip_file(downloaded_zip_path, temp_extract_path):
-            log.critical("资源文件解压失败, 即将结束安装")
-            return False
+        temp_extract_path_core  = Path(config.TEMP_INSTALL_DIR + "\\core")
+        if not fileDownloader.unzip_file(downloaded_zip_path, temp_extract_path) or not fileDownloader.unzip_file(downloaded_core_path, temp_extract_path_core):
+            error_detail = "资源文件解压失败"
+            log.critical(error_detail)
+            raise Exception(error_detail)
 
         expected_aura_source_path = temp_extract_path
         if not expected_aura_source_path.is_dir():
@@ -263,60 +262,90 @@ def run_installation(args=None):
                 if not args.dry_run:
                     shutil.rmtree(target_aura_path)
                     time.sleep(0.1)
+                ssa_asar = "app.asar.bak"
+                if os.path.exists(install_dir_path / ssa_asar):
+                    log.warning(
+                        "Patch ASAR 将使用备份的ASAR，请确保其完整并未更改..."
+                    )
+                else:
+                    log.warning(
+                        "app.asar.bak未找到，将不进行Patch操作..."
+                    )
+                    log.warning(
+                        "若现有的app.asar为未patch过的，请将其复制到app.asar.bak。"
+                    )
+                    if_patch = False
             if not args.dry_run:
                 shutil.move(str(expected_aura_source_path), str(target_aura_path))
             log.success(f"成功移动文件夹 '{config.EXTRACTED_FOLDER_NAME}'")
         except Exception as e:
             log.critical(f"移动文件夹 '{config.EXTRACTED_FOLDER_NAME}' 时发生错误: {e}")
             return False
+            
+        if if_patch:
+            log.info("[6.5 / 10] Patch ASAR")
+            PatchResult = asarPatcher.patch_asar_file(
+                input_asar_path=str(install_dir_path / ssa_asar),
+                temp_extract_dir=str(Path(config.TEMP_INSTALL_DIR) / "asar_temp"),
+                output_asar_path=str(Path(config.TEMP_INSTALL_DIR) / config.ASAR_FILENAME),
+                core_dir=str(temp_extract_path_core)
+            )
+            if not PatchResult[0]:
+                error_detail = f"ASAR 文件修改失败: {PatchResult[1]}"
+                log.critical(error_detail)
+                raise Exception(error_detail)
+            log.info(f"ASAR 文件修改成功, 输出路径: {PatchResult[1]}")
 
         log.info("[7 / 10] 启动结束进程后台任务")
         if not args.dry_run:
             killer.start_killing_process()
             time.sleep(2.0)
 
-        log.info("[8 / 10] 替换 ASAR 包")
-        original_asar_path = install_dir_path / config.TARGET_ASAR_NAME
-        temp_asar_path = downloaded_asar_path
+        if if_patch:
+            log.info("[8 / 10] 替换 ASAR 包")
+            original_asar_path = install_dir_path / config.TARGET_ASAR_NAME
+            temp_asar_path = PatchResult[1]
 
-        log.info(f"正在将 {original_asar_path} 替换为新的 {temp_asar_path.name}...")
+            log.info(f"正在将 {original_asar_path} 替换为新的 {temp_asar_path}...")
 
-        def del_original_asar():
-            if original_asar_path.exists():
-                log.info(f"尝试删除旧的 {original_asar_path}...")
-                try:
-                    if not args.dry_run:
-                        os.remove(original_asar_path)
-                    log.success(f"旧的 {config.TARGET_ASAR_NAME} 删除成功。")
-                    time.sleep(0.2)
-                except OSError as e:
-                    log.error(
-                        f"未能删除 {original_asar_path}: {e} | 旧的 ASAR 可能仍被占用中..."
-                    )
-                    log.info("准备重试删除...")
-                    time.sleep(0.5)
-                    del_original_asar()
-            else:
-                log.info(f"未找到旧的 {config.TARGET_ASAR_NAME}, 跳过删除...")
+            def del_original_asar():
+                if original_asar_path.exists():
+                    log.info(f"尝试删除旧的 {original_asar_path}...")
+                    try:
+                        if not args.dry_run:
+                            os.remove(original_asar_path)
+                        log.success(f"旧的 {config.TARGET_ASAR_NAME} 删除成功。")
+                        time.sleep(0.2)
+                    except OSError as e:
+                        log.error(
+                            f"未能删除 {original_asar_path}: {e} | 旧的 ASAR 可能仍被占用中..."
+                        )
+                        log.info("准备重试删除...")
+                        time.sleep(0.5)
+                        del_original_asar()
+                else:
+                    log.info(f"未找到旧的 {config.TARGET_ASAR_NAME}, 跳过删除...")
 
-        del_original_asar()
+            del_original_asar()
 
-        try:
-            log.info(f"正在将 {temp_asar_path} 移到 {original_asar_path}...")
-            if not args.dry_run:
-                shutil.move(str(temp_asar_path), str(original_asar_path))
-            if original_asar_path.exists():
-                log.success(f"替换 {config.TARGET_ASAR_NAME} 成功。")
-                install_success = True
-            else:
-                log.critical(f"移动到 {original_asar_path} 失败, 请尝试手动操作。")
+            try:
+                log.info(f"正在将 {temp_asar_path} 移到 {original_asar_path}...")
+                if not args.dry_run:
+                    shutil.move(str(temp_asar_path), str(original_asar_path))
+                if original_asar_path.exists():
+                    log.success(f"替换 {config.TARGET_ASAR_NAME} 成功。")
+                    install_success = True
+                else:
+                    log.critical(f"移动到 {original_asar_path} 失败, 请尝试手动操作。")
+                    install_success = False
+            except Exception as e:
+                log.critical(f"移动文件时发生未知错误: {e}")
+                log.critical(
+                    "请再次检查文件系统过滤驱动已被 unload, 并检查对希沃管家目录的可写入性。"
+                )
                 install_success = False
-        except Exception as e:
-            log.critical(f"移动文件时发生未知错误: {e}")
-            log.critical(
-                "请再次检查文件系统过滤驱动已被 unload, 并检查对希沃管家目录的可写入性。"
-            )
-            install_success = False
+        else:
+            install_success = True
 
         log.info("[9 / 10] 写入版本信息和安装时间到注册表")
         # 写入版本信息和安装时间到注册表
