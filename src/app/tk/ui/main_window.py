@@ -16,15 +16,47 @@ from pathlib import Path
 from utils.version_manager import version_manager
 
 
+def _enable_high_dpi_awareness():
+    """
+    在 Windows 上启用高 DPI 感知, 避免高缩放比例下窗口被放大裁剪。
+
+    需要在创建 Tk 根窗口之前调用。
+    """
+    try:
+        if os.name != "nt":
+            return
+
+        # 优先使用 shcore 接口 (Windows 8.1+)
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+            return
+        except Exception:
+            pass
+
+        # 回退到较旧的 DPIAware 接口
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+    except Exception:
+        # DPI 设置失败时静默忽略, 不影响程序其他逻辑
+        pass
+
+
 class MainWindow:
     """主窗口UI类"""
 
     def __init__(self, theme="flatly"):
+        # 在创建根窗口前启用高 DPI 感知, 解决高缩放比例下窗口显示异常的问题
+        _enable_high_dpi_awareness()
+
         # 创建根窗口
         self.root = ttk_bs.Window(themename=theme)
         self.root.title("HugoAura 安装器")
+        # 初始大小, 允许后续根据内容和屏幕大小自动调整
         self.root.geometry("600x800")
-        self.root.resizable(False, False)
+        # 允许窗口缩放和最大化, 方便在小分辨率/高 DPI 下查看完整内容
+        self.root.resizable(True, True)
         self.root.iconbitmap(
             os.path.join(
                 Path(os.path.dirname(__file__)).parents[1],
@@ -322,7 +354,24 @@ class MainWindow:
         self._load_versions_async(is_refresh=True)
 
     def _handle_frame_resize(self, newFrameHeight):
-        self.root.geometry(f"600x{str(570 + newFrameHeight)}")
+        """
+        根据版本选择区域高度动态调整窗口高度, 并限制不超过屏幕高度。
+
+        在高 DPI + 高缩放比例的环境下, 如果窗口高度大于屏幕高度,
+        会出现只能看到左上角、无法点击底部按钮的问题 (见 Issue #33)。
+        这里根据屏幕高度做上限裁剪, 保证窗口始终完全可见。
+        """
+        try:
+            base_height = 570 + int(newFrameHeight)
+        except Exception:
+            base_height = 600
+
+        # 获取当前屏幕逻辑高度, 预留一定边距避免贴边
+        screen_height = self.root.winfo_screenheight() or base_height
+        max_height = max(500, screen_height - 100)
+
+        final_height = min(base_height, max_height)
+        self.root.geometry(f"600x{final_height}")
 
     def _center_window(self):
         """窗口居中显示"""
@@ -333,11 +382,98 @@ class MainWindow:
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
 
+    def _on_scrollable_frame_configure(self, event):
+        """
+        当内部内容尺寸变化时, 更新画布的滚动区域, 并自适应宽度。
+        """
+        if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
+            return
+
+        canvas = self._canvas
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        # 居中位置
+        self._update_content_center()
+
+    def _on_canvas_configure(self, event):
+        """当画布大小变化时, 更新内容居中位置"""
+        if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
+            return
+        self._update_content_center()
+
+    def _update_content_center(self):
+        """更新内容在画布中的水平居中位置"""
+        if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
+            return
+        
+        canvas = self._canvas
+        canvas.update_idletasks()
+        
+        # 获取画布实际宽度
+        canvas_width = canvas.winfo_width()
+        if canvas_width <= 1:  # 画布尚未初始化
+            return
+        
+        # 限制内容最大宽度, 保持 UI 不会过宽
+        max_content_width = 640
+        content_width = min(canvas_width - 40, max_content_width)
+        
+        # 设置内容宽度
+        canvas.itemconfigure(self._canvas_window, width=content_width)
+        
+        # 计算居中位置: (画布宽度 - 内容宽度) / 2
+        center_x = max(0, (canvas_width - content_width) / 2)
+        
+        # 获取当前 y 坐标, 保持垂直位置不变
+        try:
+            coords = canvas.coords(self._canvas_window)
+            current_y = coords[1] if len(coords) > 1 else 0
+        except:
+            current_y = 0
+        
+        #水平居中, 垂直从顶部开始
+        canvas.coords(self._canvas_window, center_x, current_y)
+
+    def _on_mousewheel(self, event):
+        """鼠标滚轮垂直滚动"""
+        if not hasattr(self, "_canvas"):
+            return
+        # Windows 上 event.delta 通常为 120 的倍数
+        delta = int(-1 * (event.delta / 120))
+        self._canvas.yview_scroll(delta, "units")
+
     def _create_widgets(self):
         """创建界面控件"""
-        # 主容器
-        main_frame = ttk_bs.Frame(self.root, padding=20)
-        main_frame.pack(fill=BOTH, expand=True)
+        # ===== 可滚动主容器 =====
+        container = ttk_bs.Frame(self.root)
+        container.pack(fill=BOTH, expand=True)
+
+        # 使用 Canvas + Scrollbar 实现垂直滚动
+        canvas = tk.Canvas(container, highlightthickness=0)
+        v_scrollbar = ttk_bs.Scrollbar(
+            container, orient="vertical", command=canvas.yview
+        )
+        canvas.configure(yscrollcommand=v_scrollbar.set)
+
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=BOTH, expand=True)
+
+        self._canvas = canvas
+
+        # 真正放控件的主 Frame, 嵌入到 Canvas 中
+        main_frame = ttk_bs.Frame(canvas, padding=20)
+        self._canvas_window = canvas.create_window(
+            (0, 0), window=main_frame, anchor="nw"
+        )
+
+        # 内容尺寸变化时更新滚动区域和居中位置
+        main_frame.bind("<Configure>", self._on_scrollable_frame_configure)
+        
+        # 画布大小变化时也更新居中位置
+        canvas.bind("<Configure>", self._on_canvas_configure)
+
+        # 绑定鼠标滚轮滚动
+        canvas.bind_all("<MouseWheel>", self._on_mousewheel)
 
         # 标题
         title_label = ttk_bs.Label(
