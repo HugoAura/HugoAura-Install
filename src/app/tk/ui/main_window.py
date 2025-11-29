@@ -9,10 +9,11 @@ from tkinter import filedialog, messagebox
 import ttkbootstrap as ttk_bs
 from ttkbootstrap.constants import *
 from tkinter.font import ITALIC
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 import ctypes
 import os
 from pathlib import Path
+from datetime import datetime
 from utils.version_manager import version_manager
 
 
@@ -199,6 +200,109 @@ class MainWindow:
         self._rebuild_version_options()
         self._update_version_inputs()
 
+    def _format_version_date(self, published_at: Optional[str]) -> str:
+        """
+        格式化版本发布日期
+        
+        Args:
+            published_at: ISO格式的日期字符串 (例如: "2025-06-20T12:00:00Z")
+            
+        Returns:
+            格式化后的日期字符串 (例如: "2025/06/20"), 如果日期无效则返回空字符串
+        """
+        if not published_at:
+            return ""
+        
+        try:
+            # 处理不同的ISO日期格式
+            date_str = published_at.strip()
+            
+            # 如果以Z结尾，替换为+00:00以便fromisoformat解析
+            if date_str.endswith('Z'):
+                date_str = date_str[:-1] + '+00:00'
+            # 如果没有时区信息，直接解析
+            elif '+' not in date_str and date_str.count(':') >= 2:
+                # 包含时间但没有时区，尝试添加默认时区
+                if 'T' in date_str:
+                    date_str = date_str + '+00:00'
+            
+            # 解析ISO格式日期
+            dt = datetime.fromisoformat(date_str)
+            
+            # 格式化为 YYYY/MM/DD
+            return dt.strftime("%Y/%m/%d")
+        except (ValueError, AttributeError, TypeError) as e:
+            # 如果解析失败，返回空字符串
+            return ""
+
+    def _create_version_option_widget(self, parent_frame, version_info: Dict, bootstyle: str):
+        """
+        创建带日期显示的版本选项控件
+        
+        Args:
+            parent_frame: 父框架
+            version_info: 版本信息字典
+            bootstyle: ttkbootstrap样式
+            
+        Returns:
+            包含版本选项的Frame控件
+        """
+        # 创建容器Frame
+        option_frame = ttk_bs.Frame(parent_frame)
+        
+        # 创建单选按钮（不显示文本）
+        radio = ttk_bs.Radiobutton(
+            option_frame,
+            text="",  # 文本Label显示
+            variable=self.specific_version_var,
+            value=version_info["tag"],
+            bootstyle=bootstyle,
+        )
+        radio.pack(side=LEFT, padx=(0, 6))
+        
+        # 创建版本名称标签
+        version_name = version_info["name"]
+        version_label = ttk_bs.Label(
+            option_frame,
+            text=version_name,
+            font=("Microsoft YaHei UI", 9),
+        )
+        version_label.pack(side=LEFT)
+        
+        # 创建日期标签（如果有日期）
+        published_at = version_info.get("published_at")
+        date_str = self._format_version_date(published_at)
+        if date_str:
+            # 添加分隔符
+            separator_label = ttk_bs.Label(
+                option_frame,
+                text=" · ",
+                font=("Microsoft YaHei UI", 8),
+                bootstyle=SECONDARY,
+            )
+            separator_label.pack(side=LEFT, padx=(6, 0))
+            
+            # 日期标签（较小字号、斜体、灰色）
+            date_label = ttk_bs.Label(
+                option_frame,
+                text=date_str,
+                font=("Microsoft YaHei UI", 8, ITALIC),
+                bootstyle=SECONDARY,
+            )
+            date_label.pack(side=LEFT)
+        
+        # 绑定点击事件：点击整个Frame或任何子控件时也选中单选按钮
+        def on_frame_click(event):
+            radio.invoke()
+        
+        option_frame.bind("<Button-1>", on_frame_click)
+        version_label.bind("<Button-1>", on_frame_click)
+        if date_str:
+            separator_label.bind("<Button-1>", on_frame_click)
+            date_label.bind("<Button-1>", on_frame_click)
+        
+        return option_frame
+
     def _rebuild_version_options(self):
         """根据加载的版本数据重建版本选择选项"""
         # 清理现有的版本选择控件
@@ -211,41 +315,35 @@ class MainWindow:
         # 创建发行版选项
         releases = self.versions_data.get("releases", [])
         for version_info in releases:
-            radio = ttk_bs.Radiobutton(
+            option_frame = self._create_version_option_widget(
                 self.release_frame,
-                text=version_info["name"],
-                variable=self.specific_version_var,
-                value=version_info["tag"],
-                bootstyle=INFO,
+                version_info,
+                INFO
             )
-            radio.pack(anchor=W, pady=1)
-            self.version_widgets[version_info["tag"]] = radio
+            option_frame.pack(anchor=W, pady=1, fill=X)
+            self.version_widgets[version_info["tag"]] = option_frame
 
         # 创建预发行版选项
         prereleases = self.versions_data.get("prereleases", [])
         for version_info in prereleases:
-            radio = ttk_bs.Radiobutton(
+            option_frame = self._create_version_option_widget(
                 self.prerelease_frame,
-                text=version_info["name"],
-                variable=self.specific_version_var,
-                value=version_info["tag"],
-                bootstyle=WARNING,
+                version_info,
+                WARNING
             )
-            radio.pack(anchor=W, pady=1)
-            self.version_widgets[version_info["tag"]] = radio
+            option_frame.pack(anchor=W, pady=1, fill=X)
+            self.version_widgets[version_info["tag"]] = option_frame
 
         # 创建CI构建版选项
         ci_builds = self.versions_data.get("ci_builds", [])
         for version_info in ci_builds:
-            radio = ttk_bs.Radiobutton(
+            option_frame = self._create_version_option_widget(
                 self.ci_frame,
-                text=version_info["name"],
-                variable=self.specific_version_var,
-                value=version_info["tag"],
-                bootstyle=INFO,
+                version_info,
+                INFO
             )
-            radio.pack(anchor=W, pady=1)
-            self.version_widgets[version_info["tag"]] = radio
+            option_frame.pack(anchor=W, pady=1, fill=X)
+            self.version_widgets[version_info["tag"]] = option_frame
 
         # 设置默认选择
         self._set_default_version_selection()
