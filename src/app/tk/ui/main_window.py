@@ -488,19 +488,29 @@ class MainWindow:
             return
 
         canvas = self._canvas
+        # 更新滚动区域
         canvas.configure(scrollregion=canvas.bbox("all"))
         
-        # 居中位置
+        # 更新内容居中位置
         self._update_content_center()
 
     def _on_canvas_configure(self, event):
-        """当画布大小变化时, 更新内容居中位置"""
+        """当画布大小变化时, 更新内容居中位置和滚动区域"""
         if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
             return
+        
+        canvas = self._canvas
+        # 更新滚动区域
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        # 更新内容居中位置
         self._update_content_center()
 
     def _update_content_center(self):
-        """更新内容在画布中的水平居中位置"""
+        """
+        更新内容在画布中的水平居中位置，确保垂直位置始终从顶部开始
+        修复窗口最大化/还原时内容飘到视口外的：Canvas窗口的y坐标必须始终为0
+        """
         if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
             return
         
@@ -519,18 +529,39 @@ class MainWindow:
         # 设置内容宽度
         canvas.itemconfigure(self._canvas_window, width=content_width)
         
-        # 计算居中位置: (画布宽度 - 内容宽度) / 2
+        # 计算水平居中位置: (画布宽度 - 内容宽度) / 2
         center_x = max(0, (canvas_width - content_width) / 2)
         
-        # 获取当前 y 坐标, 保持垂直位置不变
+        # 获取当前滚动位置，以便在更新后恢复
         try:
-            coords = canvas.coords(self._canvas_window)
-            current_y = coords[1] if len(coords) > 1 else 0
+            current_scroll = canvas.yview()
         except:
-            current_y = 0
+            current_scroll = (0.0, 1.0)
         
-        #水平居中, 垂直从顶部开始
-        canvas.coords(self._canvas_window, center_x, current_y)
+        # 关键修复：确保Canvas窗口的y坐标始终为0
+        # 如果y坐标不是0，内容会飘到视口外
+        # 滚动应该通过Canvas的yview实现，而不是移动Canvas窗口的位置
+        canvas.coords(self._canvas_window, center_x, 0)
+        
+        # 更新滚动区域（必须在设置坐标之后）
+        canvas.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        # 恢复之前的滚动位置
+        try:
+            canvas.yview_moveto(current_scroll[0])
+        except:
+            pass
+
+    def _on_window_configure(self, event):
+        """当窗口大小变化时（包括最大化/还原），更新Canvas内容位置"""
+        # 只处理根窗口的配置事件
+        if event.widget != self.root:
+            return
+        
+        # 延迟更新，确保窗口大小已经稳定
+        # 这会确保Canvas窗口的y坐标始终为0，防止内容飘到视口外
+        self.root.after_idle(self._update_content_center)
 
     def _on_mousewheel(self, event):
         """鼠标滚轮垂直滚动"""
@@ -569,6 +600,9 @@ class MainWindow:
         
         # 画布大小变化时也更新居中位置
         canvas.bind("<Configure>", self._on_canvas_configure)
+        
+        # 绑定窗口大小变化事件，确保最大化/还原时正确更新
+        self.root.bind("<Configure>", self._on_window_configure)
 
         # 绑定鼠标滚轮滚动
         canvas.bind_all("<MouseWheel>", self._on_mousewheel)
