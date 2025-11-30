@@ -54,8 +54,18 @@ class MainWindow:
         # 创建根窗口
         self.root = ttk_bs.Window(themename=theme)
         self.root.title("HugoAura 安装器")
+
+        self.geometry_info = {
+            "BASELINE_HEIGHT": 400,
+            "BASELINE_WIDTH": 400,
+            "scaleFactor": ctypes.windll.shcore.GetScaleFactorForDevice(0) / 100
+        }
+
         # 初始大小, 允许后续根据内容和屏幕大小自动调整
-        self.root.geometry("600x800")
+        self.root.geometry(
+            f"{int(self.geometry_info["BASELINE_WIDTH"] * self.geometry_info["scaleFactor"])}x{int(self.geometry_info["BASELINE_HEIGHT"] * self.geometry_info["scaleFactor"])}"
+        )
+        self.root.tk.call("tk", "scaling", self.geometry_info["scaleFactor"] * 100 / 75)
         # 允许窗口缩放和最大化, 方便在小分辨率/高 DPI 下查看完整内容
         self.root.resizable(True, True)
         self.root.iconbitmap(
@@ -460,24 +470,24 @@ class MainWindow:
         这里根据屏幕高度做上限裁剪, 保证窗口始终完全可见。
         """
         try:
-            base_height = 570 + int(newFrameHeight)
+            base_height = (self.geometry_info["BASELINE_HEIGHT"] - 30) * self.geometry_info["scaleFactor"] + int(newFrameHeight)
         except Exception:
-            base_height = 600
+            base_height = self.geometry_info["BASELINE_HEIGHT"] * self.geometry_info["scaleFactor"]
 
         # 获取当前屏幕逻辑高度, 预留一定边距避免贴边
         screen_height = self.root.winfo_screenheight() or base_height
-        max_height = max(500, screen_height - 100)
+        max_height = screen_height - 200
 
         final_height = min(base_height, max_height)
-        self.root.geometry(f"600x{final_height}")
+        self.root.geometry(f"{int(self.geometry_info["BASELINE_WIDTH"] * self.geometry_info["scaleFactor"])}x{int(final_height)}")
 
     def _center_window(self):
         """窗口居中显示"""
         self.root.update_idletasks()
         width = self.root.winfo_width()
         height = self.root.winfo_height()
-        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        x = int((self.root.winfo_screenwidth() // 2) - (width // 2))
+        y = int((self.root.winfo_screenheight() // 2) - (height // 1.5))
         self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     def _on_scrollable_frame_configure(self, event):
