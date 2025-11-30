@@ -9,22 +9,55 @@ from tkinter import filedialog, messagebox
 import ttkbootstrap as ttk_bs
 from ttkbootstrap.constants import *
 from tkinter.font import ITALIC
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict
 import ctypes
 import os
 from pathlib import Path
+from datetime import datetime
 from utils.version_manager import version_manager
+
+
+def _enable_high_dpi_awareness():
+    """
+    在 Windows 上启用高 DPI 感知, 避免高缩放比例下窗口被放大裁剪。
+
+    需要在创建 Tk 根窗口之前调用。
+    """
+    try:
+        if os.name != "nt":
+            return
+
+        # 优先使用 shcore 接口 (Windows 8.1+)
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+            return
+        except Exception:
+            pass
+
+        # 回退到较旧的 DPIAware 接口
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+    except Exception:
+        # DPI 设置失败时静默忽略, 不影响程序其他逻辑
+        pass
 
 
 class MainWindow:
     """主窗口UI类"""
 
     def __init__(self, theme="flatly"):
+        # 在创建根窗口前启用高 DPI 感知, 解决高缩放比例下窗口显示异常的问题
+        _enable_high_dpi_awareness()
+
         # 创建根窗口
         self.root = ttk_bs.Window(themename=theme)
         self.root.title("HugoAura 安装器")
+        # 初始大小, 允许后续根据内容和屏幕大小自动调整
         self.root.geometry("600x800")
-        self.root.resizable(False, False)
+        # 允许窗口缩放和最大化, 方便在小分辨率/高 DPI 下查看完整内容
+        self.root.resizable(True, True)
         self.root.iconbitmap(
             os.path.join(
                 Path(os.path.dirname(__file__)).parents[1],
@@ -167,6 +200,109 @@ class MainWindow:
         self._rebuild_version_options()
         self._update_version_inputs()
 
+    def _format_version_date(self, published_at: Optional[str]) -> str:
+        """
+        格式化版本发布日期
+        
+        Args:
+            published_at: ISO格式的日期字符串 (例如: "2025-06-20T12:00:00Z")
+            
+        Returns:
+            格式化后的日期字符串 (例如: "2025/06/20"), 如果日期无效则返回空字符串
+        """
+        if not published_at:
+            return ""
+        
+        try:
+            # 处理不同的ISO日期格式
+            date_str = published_at.strip()
+            
+            # 如果以Z结尾，替换为+00:00以便fromisoformat解析
+            if date_str.endswith('Z'):
+                date_str = date_str[:-1] + '+00:00'
+            # 如果没有时区信息，直接解析
+            elif '+' not in date_str and date_str.count(':') >= 2:
+                # 包含时间但没有时区，尝试添加默认时区
+                if 'T' in date_str:
+                    date_str = date_str + '+00:00'
+            
+            # 解析ISO格式日期
+            dt = datetime.fromisoformat(date_str)
+            
+            # 格式化为 YYYY/MM/DD
+            return dt.strftime("%Y/%m/%d")
+        except (ValueError, AttributeError, TypeError) as e:
+            # 如果解析失败，返回空字符串
+            return ""
+
+    def _create_version_option_widget(self, parent_frame, version_info: Dict, bootstyle: str):
+        """
+        创建带日期显示的版本选项控件
+        
+        Args:
+            parent_frame: 父框架
+            version_info: 版本信息字典
+            bootstyle: ttkbootstrap样式
+            
+        Returns:
+            包含版本选项的Frame控件
+        """
+        # 创建容器Frame
+        option_frame = ttk_bs.Frame(parent_frame)
+        
+        # 创建单选按钮（不显示文本）
+        radio = ttk_bs.Radiobutton(
+            option_frame,
+            text="",  # 文本Label显示
+            variable=self.specific_version_var,
+            value=version_info["tag"],
+            bootstyle=bootstyle,
+        )
+        radio.pack(side=LEFT, padx=(0, 6))
+        
+        # 创建版本名称标签
+        version_name = version_info["name"]
+        version_label = ttk_bs.Label(
+            option_frame,
+            text=version_name,
+            font=("Microsoft YaHei UI", 9),
+        )
+        version_label.pack(side=LEFT)
+        
+        # 创建日期标签（如果有日期）
+        published_at = version_info.get("published_at")
+        date_str = self._format_version_date(published_at)
+        if date_str:
+            # 添加分隔符
+            separator_label = ttk_bs.Label(
+                option_frame,
+                text=" · ",
+                font=("Microsoft YaHei UI", 8),
+                bootstyle=SECONDARY,
+            )
+            separator_label.pack(side=LEFT, padx=(6, 0))
+            
+            # 日期标签（较小字号、斜体、灰色）
+            date_label = ttk_bs.Label(
+                option_frame,
+                text=date_str,
+                font=("Microsoft YaHei UI", 8, ITALIC),
+                bootstyle=SECONDARY,
+            )
+            date_label.pack(side=LEFT)
+        
+        # 绑定点击事件：点击整个Frame或任何子控件时也选中单选按钮
+        def on_frame_click(event):
+            radio.invoke()
+        
+        option_frame.bind("<Button-1>", on_frame_click)
+        version_label.bind("<Button-1>", on_frame_click)
+        if date_str:
+            separator_label.bind("<Button-1>", on_frame_click)
+            date_label.bind("<Button-1>", on_frame_click)
+        
+        return option_frame
+
     def _rebuild_version_options(self):
         """根据加载的版本数据重建版本选择选项"""
         # 清理现有的版本选择控件
@@ -179,41 +315,35 @@ class MainWindow:
         # 创建发行版选项
         releases = self.versions_data.get("releases", [])
         for version_info in releases:
-            radio = ttk_bs.Radiobutton(
+            option_frame = self._create_version_option_widget(
                 self.release_frame,
-                text=version_info["name"],
-                variable=self.specific_version_var,
-                value=version_info["tag"],
-                bootstyle=INFO,
+                version_info,
+                INFO
             )
-            radio.pack(anchor=W, pady=1)
-            self.version_widgets[version_info["tag"]] = radio
+            option_frame.pack(anchor=W, pady=1, fill=X)
+            self.version_widgets[version_info["tag"]] = option_frame
 
         # 创建预发行版选项
         prereleases = self.versions_data.get("prereleases", [])
         for version_info in prereleases:
-            radio = ttk_bs.Radiobutton(
+            option_frame = self._create_version_option_widget(
                 self.prerelease_frame,
-                text=version_info["name"],
-                variable=self.specific_version_var,
-                value=version_info["tag"],
-                bootstyle=WARNING,
+                version_info,
+                WARNING
             )
-            radio.pack(anchor=W, pady=1)
-            self.version_widgets[version_info["tag"]] = radio
+            option_frame.pack(anchor=W, pady=1, fill=X)
+            self.version_widgets[version_info["tag"]] = option_frame
 
         # 创建CI构建版选项
         ci_builds = self.versions_data.get("ci_builds", [])
         for version_info in ci_builds:
-            radio = ttk_bs.Radiobutton(
+            option_frame = self._create_version_option_widget(
                 self.ci_frame,
-                text=version_info["name"],
-                variable=self.specific_version_var,
-                value=version_info["tag"],
-                bootstyle=INFO,
+                version_info,
+                INFO
             )
-            radio.pack(anchor=W, pady=1)
-            self.version_widgets[version_info["tag"]] = radio
+            option_frame.pack(anchor=W, pady=1, fill=X)
+            self.version_widgets[version_info["tag"]] = option_frame
 
         # 设置默认选择
         self._set_default_version_selection()
@@ -322,7 +452,24 @@ class MainWindow:
         self._load_versions_async(is_refresh=True)
 
     def _handle_frame_resize(self, newFrameHeight):
-        self.root.geometry(f"600x{str(570 + newFrameHeight)}")
+        """
+        根据版本选择区域高度动态调整窗口高度, 并限制不超过屏幕高度。
+
+        在高 DPI + 高缩放比例的环境下, 如果窗口高度大于屏幕高度,
+        会出现只能看到左上角、无法点击底部按钮的问题 (见 Issue #33)。
+        这里根据屏幕高度做上限裁剪, 保证窗口始终完全可见。
+        """
+        try:
+            base_height = 570 + int(newFrameHeight)
+        except Exception:
+            base_height = 600
+
+        # 获取当前屏幕逻辑高度, 预留一定边距避免贴边
+        screen_height = self.root.winfo_screenheight() or base_height
+        max_height = max(500, screen_height - 100)
+
+        final_height = min(base_height, max_height)
+        self.root.geometry(f"600x{final_height}")
 
     def _center_window(self):
         """窗口居中显示"""
@@ -333,11 +480,132 @@ class MainWindow:
         y = (self.root.winfo_screenheight() // 2) - (height // 2)
         self.root.geometry(f"{width}x{height}+{x}+{y}")
 
+    def _on_scrollable_frame_configure(self, event):
+        """
+        当内部内容尺寸变化时, 更新画布的滚动区域, 并自适应宽度。
+        """
+        if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
+            return
+
+        canvas = self._canvas
+        # 更新滚动区域
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        # 更新内容居中位置
+        self._update_content_center()
+
+    def _on_canvas_configure(self, event):
+        """当画布大小变化时, 更新内容居中位置和滚动区域"""
+        if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
+            return
+        
+        canvas = self._canvas
+        # 更新滚动区域
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        # 更新内容居中位置
+        self._update_content_center()
+
+    def _update_content_center(self):
+        """
+        更新内容在画布中的水平居中位置，确保垂直位置始终从顶部开始
+        修复窗口最大化/还原时内容飘到视口外的：Canvas窗口的y坐标必须始终为0
+        """
+        if not hasattr(self, "_canvas") or not hasattr(self, "_canvas_window"):
+            return
+        
+        canvas = self._canvas
+        canvas.update_idletasks()
+        
+        # 获取画布实际宽度
+        canvas_width = canvas.winfo_width()
+        if canvas_width <= 1:  # 画布尚未初始化
+            return
+        
+        # 限制内容最大宽度, 保持 UI 不会过宽
+        max_content_width = 640
+        content_width = min(canvas_width - 40, max_content_width)
+        
+        # 设置内容宽度
+        canvas.itemconfigure(self._canvas_window, width=content_width)
+        
+        # 计算水平居中位置: (画布宽度 - 内容宽度) / 2
+        center_x = max(0, (canvas_width - content_width) / 2)
+        
+        # 获取当前滚动位置，以便在更新后恢复
+        try:
+            current_scroll = canvas.yview()
+        except:
+            current_scroll = (0.0, 1.0)
+        
+        # 关键修复：确保Canvas窗口的y坐标始终为0
+        # 如果y坐标不是0，内容会飘到视口外
+        # 滚动应该通过Canvas的yview实现，而不是移动Canvas窗口的位置
+        canvas.coords(self._canvas_window, center_x, 0)
+        
+        # 更新滚动区域（必须在设置坐标之后）
+        canvas.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        # 恢复之前的滚动位置
+        try:
+            canvas.yview_moveto(current_scroll[0])
+        except:
+            pass
+
+    def _on_window_configure(self, event):
+        """当窗口大小变化时（包括最大化/还原），更新Canvas内容位置"""
+        # 只处理根窗口的配置事件
+        if event.widget != self.root:
+            return
+        
+        # 延迟更新，确保窗口大小已经稳定
+        # 这会确保Canvas窗口的y坐标始终为0，防止内容飘到视口外
+        self.root.after_idle(self._update_content_center)
+
+    def _on_mousewheel(self, event):
+        """鼠标滚轮垂直滚动"""
+        if not hasattr(self, "_canvas"):
+            return
+        # Windows 上 event.delta 通常为 120 的倍数
+        delta = int(-1 * (event.delta / 120))
+        self._canvas.yview_scroll(delta, "units")
+
     def _create_widgets(self):
         """创建界面控件"""
-        # 主容器
-        main_frame = ttk_bs.Frame(self.root, padding=20)
-        main_frame.pack(fill=BOTH, expand=True)
+        # ===== 可滚动主容器 =====
+        container = ttk_bs.Frame(self.root)
+        container.pack(fill=BOTH, expand=True)
+
+        # 使用 Canvas + Scrollbar 实现垂直滚动
+        canvas = tk.Canvas(container, highlightthickness=0)
+        v_scrollbar = ttk_bs.Scrollbar(
+            container, orient="vertical", command=canvas.yview
+        )
+        canvas.configure(yscrollcommand=v_scrollbar.set)
+
+        v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=BOTH, expand=True)
+
+        self._canvas = canvas
+
+        # 真正放控件的主 Frame, 嵌入到 Canvas 中
+        main_frame = ttk_bs.Frame(canvas, padding=20)
+        self._canvas_window = canvas.create_window(
+            (0, 0), window=main_frame, anchor="nw"
+        )
+
+        # 内容尺寸变化时更新滚动区域和居中位置
+        main_frame.bind("<Configure>", self._on_scrollable_frame_configure)
+        
+        # 画布大小变化时也更新居中位置
+        canvas.bind("<Configure>", self._on_canvas_configure)
+        
+        # 绑定窗口大小变化事件，确保最大化/还原时正确更新
+        self.root.bind("<Configure>", self._on_window_configure)
+
+        # 绑定鼠标滚轮滚动
+        canvas.bind_all("<MouseWheel>", self._on_mousewheel)
 
         # 标题
         title_label = ttk_bs.Label(
