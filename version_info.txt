@@ -26,7 +26,7 @@ VSVersionInfo(
                     [
                         StringStruct(u'CompanyName', u'HugoAura Devs'),
                         StringStruct(u'FileDescription', u'HugoAura Install - 希沃设备增强工具安装程序'),
-                        StringStruct(u'FileVersion', u'0.0.3-beta-II'),
+                        StringStruct(u'FileVersion', u'0.0.3-beta-III'),
                         StringStruct(u'InternalName', u'HugoAura Install'),
                         StringStruct(u'LegalCopyright', u'Copyright © 2025 HugoAura Devs. All rights reserved.'),
                         StringStruct(u'OriginalFilename', u'AuraInstaller.exe'),

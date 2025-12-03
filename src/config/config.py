@@ -3,7 +3,7 @@ import tempfile
 
 # 应用信息
 APP_NAME = "HugoAura"
-TARGET_PROCESS_NAME = "SeewoServiceAssistant.exe"
+TARGET_PROCESS_NAME = ["SeewoServiceAssistant.exe", "SeewoCore.exe", "SeewoAbility.exe"]
 
 # GitHub 仓库信息
 GITHUB_OWNER = "HugoAura"
