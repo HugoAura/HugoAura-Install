@@ -361,6 +361,11 @@ def run_installation(args, installerClassIns=None):
             time.sleep(2.0)
 
         if if_patch:
+            update_progress(75, "[8 / 10] 置空校验数据")
+            verifyJsonPath = install_dir_path.parent / "Verify.json"
+            if (verifyJsonPath.exists()):
+                verifyJsonPath.write_text("[]", encoding="utf-8")
+
             update_progress(80, "[8 / 10] 替换 ASAR 包")
             original_asar_path = install_dir_path / config.TARGET_ASAR_NAME
             temp_asar_path = patchResult[1]  # type: ignore # 因为本段代码只会在 if_patch 的情况下被调用, 所以没有可能未绑定的问题
