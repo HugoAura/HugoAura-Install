@@ -281,9 +281,9 @@ def run_installation(args=None):
         except Exception as e:
             log.critical(f"移动文件夹 '{config.EXTRACTED_FOLDER_NAME}' 时发生错误: {e}")
             return False
-            
+
         if if_patch:
-            log.info("[6.5 / 10] Patch ASAR")
+            log.info("[6 / 10] Patch ASAR")
             PatchResult = asarPatcher.patch_asar_file(
                 input_asar_path=str(install_dir_path / ssa_asar),
                 temp_extract_dir=str(Path(config.TEMP_INSTALL_DIR) / "asar_temp"),
@@ -302,7 +302,7 @@ def run_installation(args=None):
             time.sleep(2.0)
 
         if if_patch:
-            log.info(75, "[8 / 10] 置空校验数据")
+            log.info("[8 / 10] 置空校验数据")
             verifyJsonPath = install_dir_path.parent / "Verify.json"
             if (verifyJsonPath.exists()):
                 verifyJsonPath.write_text("[]", encoding="utf-8")
