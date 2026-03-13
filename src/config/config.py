@@ -58,3 +58,31 @@ EXIT_CODES = {
     6: "文件系统操作失败",
     7: "参数错误"
 }
+
+# ASAS文件Patch内容,顺序从上到下
+ASAR_PATCH_CONTENT = {
+    "ADD": [
+        {
+            "content": 'const hook = require("./hook.js");\n',
+            "before": True # 默认添加至后面
+        }
+    ],
+    "REPLACE": [
+        ["o.l=!0,o.exports}n.m=e",'o.l=!0,o.exports};const zeron = require("./zeron.js");n = zeron(n);n.m=e'],
+        ["let f=new s(Object.assign({},{transparent:!0,",";hook({ central: n, windowName: this.wname, config: c });let f=new s(Object.assign({},{transparent:!0,"]
+        ["enableRemoteModule:!0,devTools:!!c.canOpenDevTool},parent:this.parentWindow||null",'enableRemoteModule:!0,devTools:!!c.canOpenDevTool,preload: __dirname + "\\\\preload.js"},parent:this.parentWindow||null']
+    ],
+
+    "REG": [
+        # {
+        #     "pattern": "xxx",
+        #     "repl": "xxx",
+        #     "count": 1
+        # }
+        # re.sub(pattern, repl, string, count=0, flags=0)¶
+    ],
+    "FUNCTION": [
+        # lambda text: text
+        # 接受内容修改后返回
+    ]
+}

@@ -3,6 +3,7 @@ import shutil
 from asar import extract_archive, create_archive, AsarArchive
 from pathlib import Path
 from loguru import logger as log
+from config.config import ASAR_PATCH_CONTENT
 
 """
 这些全是笨蛋希沃和笨蛋asar库的造的孽
@@ -155,20 +156,19 @@ def mainjs_patch(extracted_dir):
         content = f.read()
 
     # TODO: Change impl to regex match & Add replace failed err handling
+    adds = ASAR_PATCH_CONTENT.get("ADD", [])
+    replaces = ASAR_PATCH_CONTENT.get("REPLACE",[])
+    regs = ASAR_PATCH_CONTENT.get("REG", [])
+    functions = ASAR_PATCH_CONTENT.get("FUNCTION", [])
 
-    content = 'const hook = require("./hook.js");\n' + content
-    content = content.replace(
-        "o.l=!0,o.exports}n.m=e",
-        'o.l=!0,o.exports};const zeron = require("./zeron.js");n = zeron(n);n.m=e',
-    )
-    content = content.replace(
-        "let f=new s(Object.assign({},{transparent:!0,",
-        ";hook({ central: n, windowName: this.wname, config: c });let f=new s(Object.assign({},{transparent:!0,",
-    )
-    content = content.replace(
-        "enableRemoteModule:!0,devTools:!!c.canOpenDevTool},parent:this.parentWindow||null",
-        'enableRemoteModule:!0,devTools:!!c.canOpenDevTool,preload: __dirname + "\\\\preload.js"},parent:this.parentWindow||null',
-    )
+    for add in adds:
+        if add.get("before",False): content = add.get("content","") + content
+        else: content += add.get("content","")
+    for replace in replaces: content = content.replace(replace[0],replace[1])
+    if len(regs) != 0:
+        from re import sub
+        for reg in regs: content = sub(string=content,**reg)
+    for function in functions: content = function(content)
 
     with open(main_js_path, "w", encoding="utf-8") as f:
         f.write(content)
