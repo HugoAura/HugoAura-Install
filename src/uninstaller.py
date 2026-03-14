@@ -139,7 +139,7 @@ def run_uninstallation(args=None, installerClassIns=None):
 
         if not is_installed:
             log.warning("未检测到 HugoAura 安装, 可能已经卸载或未安装")
-            if not (args and args.force):
+            if not (args and args.force): # not provide --force because it may cause UndefinedBehavior
                 update_status("未检测到安装")
                 return {"success": False, "errorInfo": "HugoAura 未安装"}
 
@@ -266,7 +266,6 @@ def run_uninstallation(args=None, installerClassIns=None):
             log.error("=========================================")
             log.error(f"{config.APP_NAME} 卸载失败")
             log.error("=========================================")
-
         return {"success": uninstall_success, "errorInfo": error_detail}
 
 

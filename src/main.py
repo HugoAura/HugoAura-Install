@@ -7,6 +7,7 @@ from utils import uac
 from version import __appVer__
 import installer
 from config import config
+from uninstaller import run_uninstallation
 
 
 def parse_arguments():
@@ -50,6 +51,13 @@ def parse_arguments():
         "--cli", help="以 CLI 模式启动", action="store_true"
     )
 
+    parser.add_argument(
+        "--uninstall", help="卸载HugoAura", action="store_true"
+    )
+    parser.add_argument(
+        "--keep-user-data", help="卸载保留用户数据", action="store_true"
+    )
+
     return parser.parse_args()
 
 
@@ -77,9 +85,19 @@ def main():
     log.info(f"EXEC: {sys.executable}")
     log.info(f"Arg: {sys.argv}")
 
+    if args.uninstall:
+        run_uninstallation(
+            args={
+                "keep_user_data": args.keep_user_data,
+                "force": False,
+                "dry_run": False,
+            }
+        )
+        sys.exit(0)
+
     has_version_args = args.version or args.path or args.pre or args.latest
     is_double_click = len(sys.argv) == 1
-    
+
     if not has_version_args and not is_double_click and not args.dry_run:
         args.latest = True
 
