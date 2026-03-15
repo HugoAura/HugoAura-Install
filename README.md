@@ -21,7 +21,7 @@ HugoAura 的生命周期管理工具
 ### 命令行参数
 
 ```
-usage: AuraInstaller.exe [--cli] [-h] [-v VERSION | -p PATH | -l | --pre] [-d DIR] [-y] [--list-exit-codes]
+usage: AuraInstaller.exe [--cli] [-h] [-v VERSION | -p PATH | -l | --pre] [-d DIR] [-y] [--list-exit-codes] [--uninstall [--keep-user-data]]
 
 options:
   --cli                 以 CLI (无 GUI) 模式启动
@@ -34,6 +34,8 @@ options:
   -d DIR, --dir DIR     指定希沃管家安装目录
   -y, --yes             非交互模式, 自动确认所有操作
   --list-exit-codes     显示所有退出代码及其释义
+  --uninstall           卸载HugoAura(将不会进行安装)
+  --keep-user-data      卸载时保留用户数据
 ```
 
 ### 非交互式安装示例
@@ -53,6 +55,9 @@ HugoAura-Install.exe --cli -p "C:\path\to\aura.zip" -y
 
 # 指定安装目录
 HugoAura-Install.exe --cli -l -d "C:\Program Files (x86)\Seewo\SeewoService\SeewoService_1.0.0\SeewoServiceAssistant\resources" -y
+
+# 卸载HugoAura并保留数据
+HugoAura-Install.exe --cli --uninstall --keep-user-data
 ```
 
 ### 退出代码释义
