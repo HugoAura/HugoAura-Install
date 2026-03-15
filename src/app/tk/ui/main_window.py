@@ -56,8 +56,8 @@ class MainWindow:
         self.root.title("HugoAura 安装器")
 
         self.geometry_info = {
-            "BASELINE_HEIGHT": 400,
-            "BASELINE_WIDTH": 400,
+            "BASELINE_HEIGHT": 400,  # 增加基准高度以确保内容完整显示
+            "BASELINE_WIDTH": 400,   # 增加基准宽度以提供更好的显示效果
             "scaleFactor": ctypes.windll.shcore.GetScaleFactorForDevice(0) / 100
         }
 
@@ -600,7 +600,7 @@ class MainWindow:
         self._canvas = canvas
 
         # 真正放控件的主 Frame, 嵌入到 Canvas 中
-        main_frame = ttk_bs.Frame(canvas, padding=20)
+        main_frame = ttk_bs.Frame(canvas, padding=(20,))
         self._canvas_window = canvas.create_window(
             (0, 0), window=main_frame, anchor="nw"
         )
@@ -676,14 +676,14 @@ class MainWindow:
         """创建版本选择区域"""
         # 版本选择框架
         version_frame = ttk_bs.LabelFrame(
-            parent, text="版本选择", padding=15, bootstyle=INFO
+            parent, text="版本选择"
         )
         version_frame.pack(fill=X, pady=(0, 15))
         self.version_frame = version_frame
 
         # 版本类型选择标题和刷新按钮
         type_header_frame = ttk_bs.Frame(version_frame)
-        type_header_frame.pack(fill=X, pady=(0, 5))
+        type_header_frame.pack(fill=X, padx=15, pady=(15, 5))
 
         type_label = ttk_bs.Label(
             type_header_frame,
@@ -721,11 +721,11 @@ class MainWindow:
                 command=self._update_version_inputs,
                 bootstyle=PRIMARY,
             )
-            radio.pack(anchor=W, pady=2, padx=(20, 0))
+            radio.pack(anchor=W, pady=2, padx=(35, 15))
 
         # 具体版本选择框架
         self.specific_version_frame = ttk_bs.LabelFrame(
-            version_frame, text="具体版本", padding=10, bootstyle=SECONDARY
+            version_frame, text="具体版本"
         )
 
         # 版本选择框架 (将动态创建)
@@ -760,12 +760,12 @@ class MainWindow:
     def _create_directory_section(self, parent):
         """创建安装目录选择区域"""
         directory_frame = ttk_bs.LabelFrame(
-            parent, text="安装目录 (可选)", padding=15, bootstyle=INFO
+            parent, text="安装目录 (可选)"
         )
         directory_frame.pack(fill=X, pady=(0, 15))
 
         dir_input_frame = ttk_bs.Frame(directory_frame)
-        dir_input_frame.pack(fill=X)
+        dir_input_frame.pack(fill=X, padx=15, pady=(15, 5))
 
         ttk_bs.Label(dir_input_frame, text="目录路径:").pack(side=LEFT)
         self.directory_entry = ttk_bs.Entry(
@@ -788,12 +788,12 @@ class MainWindow:
             font=("Microsoft YaHei UI", 9),
             bootstyle=(SECONDARY, ITALIC),
         )
-        hint_label.pack(anchor=W, pady=(5, 0))
+        hint_label.pack(anchor=W, padx=15, pady=(0, 15))
 
     def _create_progress_section(self, parent):
         """创建进度显示区域"""
         progress_frame = ttk_bs.LabelFrame(
-            parent, text="安装进度", padding=15, bootstyle=INFO
+            parent, text="安装进度"
         )
         progress_frame.pack(fill=X, pady=(0, 15))
 
@@ -803,7 +803,7 @@ class MainWindow:
             textvariable=self.status_var,
             font=("Microsoft YaHei UI", 10, "bold"),
         )
-        self.status_label.pack(anchor=W, pady=(0, 5))
+        self.status_label.pack(anchor=W, padx=15, pady=(15, 5))
 
         # 进度条
         self.progress_bar = ttk_bs.Progressbar(
@@ -813,7 +813,7 @@ class MainWindow:
             mode="determinate",
             bootstyle=INFO,
         )
-        self.progress_bar.pack(fill=X, pady=(0, 5))
+        self.progress_bar.pack(fill=X, padx=15, pady=(0, 5))
 
         # 当前步骤
         self.step_label = ttk_bs.Label(
@@ -822,7 +822,7 @@ class MainWindow:
             font=("Microsoft YaHei UI", 9),
             bootstyle=SECONDARY,
         )
-        self.step_label.pack(anchor=W)
+        self.step_label.pack(anchor=W, padx=15, pady=(0, 15))
 
     def _create_button_section(self, parent):
         """创建按钮区域"""
